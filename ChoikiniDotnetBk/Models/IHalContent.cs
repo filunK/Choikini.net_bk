@@ -7,6 +7,12 @@ namespace ChoikiniDotnetBk.Models
     {
         string SelfUri{get;}
 
-        IEmbeddedModel Embedded{get;}
+        ResponseState State{get;}
+
+        string StateDetail{get;}
+
+        object [] Response{get;}
+
+        IEmbeddedModel[] Embedded{get;}
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Hal.Builders;
+using Hal;
 
 using ChoikiniDotnetBk.Models;
 
@@ -31,21 +32,57 @@ namespace ChoikiniDotnetBk.Utils
          */
         public static JsonResult GenerateHal(IHalContent content) {
 
-                var instruction = new ResourceBuilder()
-                    .WithState(new {})
-                    .AddSelfLink().WithLinkItem(content.SelfUri)
-                    .AddEmbedded("data")
-                    .Resource(new ResourceBuilder()
-                        .WithState(new {
-                            state = content.Embedded.state.ToString(),
-                            stateDetail = content.Embedded.StateDetail,
-                            response = content.Embedded.Response,
-                        })
-                    )
-                    .Build();
+            var resource = new Resource();
+            resource.State = new {
+                state = content.State.ToString(),
+                stateDetail = content.StateDetail,
+                response = content.Response,
+            };
 
-                    var resouce = JsonConvert.DeserializeObject(instruction.ToString());
-                    return ResponseUtil.CreateJsonResult(resouce);
+            resource.Links = new LinkCollection {
+                new Link("self") {
+                    Items = new LinkItemCollection {
+                        new LinkItem(content.SelfUri)
+                    }
+                }
+            };
+
+            if (content.Embedded != null && content.Embedded.Length > 0)
+            {
+                var embeddedResources = new EmbeddedResourceCollection();
+                
+                Array.ForEach(content.Embedded, embedded => {
+
+                    var embeddedResource = new EmbeddedResource();
+                    embeddedResource.Name = embedded.Name;
+                    embeddedResource.Resources = new ResourceCollection();
+
+                    Array.ForEach(embedded.EmbeddedContent, embeddedContent => {
+
+                        var res = new Resource(embeddedContent.EmbeddedData);
+
+                        res.Links = new LinkCollection {
+                            new Link("self") {
+                                Items = new LinkItemCollection {
+                                    new LinkItem(embeddedContent.SelfUri)
+                                }
+                            }
+                        };
+                        embeddedResource.Resources.Add(res);
+
+                    });
+
+                    embeddedResources.Add(embeddedResource);
+                });
+
+                resource.EmbeddedResources = embeddedResources;
+            }
+
+            var rawJson = resource.ToString();
+            var jsonResult = ResponseUtil.CreateJsonResult(JsonConvert.DeserializeObject(rawJson));
+
+            jsonResult.ContentType = "application/hal+json";
+            return jsonResult;
         }
 
         public static JsonResult GenerateSampleHalJson() {
